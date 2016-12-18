@@ -1,41 +1,122 @@
-#include <iostream>
-#include <stdio.h>
-#include <opencv2/opencv.hpp>
+#include<iostream>
+#include<opencv2/imgproc/imgproc.hpp>
+#include<opencv2/highgui/highgui.hpp>
 
+using namespace std;
 using namespace cv;
 
-int main(int argc )
+int reflect(int M, int x)
 {
-    Mat src, src_gray;//1
-    Mat src2;
-    Mat grad;
-    char* window_name = "Sobel Demo - Simple Edge Detector";
-    int scale = 1;
-    int delta = 0;
-    int ddepth = CV_16S;
+    if(x < 0)
+    {
+        return -x - 1;
+    }
+    if(x >= M)
+    {
+        return 2*M - x - 1;
+    }
+    return x;
+}
 
-    int c;
+int circular(int M, int x)
+{
+    if (x<0)
+        return x+M;
+    if(x >= M)
+        return x-M;
+    return x;
+}
+
+
+void noBorderProcessing(Mat src, Mat dst, float Kernel[][3])
+{
+
+    float sum;
+    for(int y = 1; y < src.rows - 1; y++){
+        for(int x = 1; x < src.cols - 1; x++){
+            sum = 0.0;
+            for(int k = -1; k <= 1;k++){
+                for(int j = -1; j <=1; j++){
+                    sum = sum + Kernel[j+1][k+1]*src.at<uchar>(y - j, x - k);
+                }
+            }
+            dst.at<uchar>(y,x) = sum;
+        }
+    }
+}
+
+void refletedIndexing(Mat src, Mat dst, float Kernel[][3])
+{
+    float sum, x1, y1;
+    for(int y = 0; y < src.rows; y++){
+        for(int x = 0; x < src.cols; x++){
+            sum = 0.0;
+            for(int k = -1;k <= 1; k++){
+                for(int j = -1;j <= 1; j++ ){
+                    x1 = reflect(src.cols, x - j);
+                    y1 = reflect(src.rows, y - k);
+                    sum = sum + Kernel[j+1][k+1]*src.at<uchar>(y1,x1);
+                }
+            }
+            dst.at<uchar>(y,x) = sum;
+        }
+    }
+}
+
+void circularIndexing(Mat src, Mat dst, float Kernel[][3])
+{
+    float sum, x1, y1;
+    for(int y = 0; y < src.rows; y++){
+        for(int x = 0; x < src.cols; x++){
+            sum = 0.0;
+            for(int k = -1;k <= 1; k++){
+                for(int j = -1;j <= 1; j++ ){
+                    x1 = circular(src.cols, x - j);
+                    y1 = circular(src.rows, y - k);
+                    sum = sum + Kernel[j+1][k+1]*src.at<uchar>(y1,x1);
+                }
+            }
+            dst.at<uchar>(y,x) = sum;
+        }
+    }
+}
+
+int main()
+{
+
+    Mat src, dst;
+
 
     /// Load an image
-    src = imread( "/home/tm/ClionProject/shapecirclebwlabeled.jpg", 0); // - 0 Серый, ниже 0 безизменений либо такие флаги CV_LOAD_IMAGE_UNCHANGED, CV_LOAD_IMAGE_GRAYSCALE, CV_LOAD_IMAGE_COLOR
-    src2 = imread("/home/tm/ClionProjects/tem/shapediamondbwlabeled.jpg", 0); // тоже самое
+    src = imread("lena.jpg", CV_LOAD_IMAGE_GRAYSCALE);
 
-    Mat res;
     if( !src.data )
     { return -1; }
 
-    imshow("src",src);
-    imshow("src2",src2);
 
-    bitwise_and(src(cv::Rect(100,200,src2.cols, src2.rows)),src2,res); //Здесь размеры матриц разные, и мы взяли ROI(Region of interest) в нашем случае RECT с src по размерам src2. x,y точки можещь выбрать сам. В нашем случае f(100,200) охватывает зону лица
-    imshow("AND",res);
+    float Kernel[3][3] = {
+            {-1, 0, -1},
+            {2, 2, 2},
+            {1, 0, 1}
+    };
 
-    bitwise_xor(src(cv::Rect(100,200,src2.cols, src2.rows)),src2,res); //Здесь размеры матриц разные, и мы взяли ROI(Region of interest) в нашем случае RECT с src по размерам src2. x,y точки можещь выбрать сам. В нашем случае f(100,200) охватывает зону лица
-    imshow("XOR",res);
+    dst = src.clone();
+    for(int y = 0; y < src.rows; y++)
+        for(int x = 0; x < src.cols; x++)
+            dst.at<uchar>(y,x) = 0.0;
 
-    bitwise_or(src(cv::Rect(100,200,src2.cols, src2.rows)),src2,res); //Здесь размеры матриц разные, и мы взяли ROI(Region of interest) в нашем случае RECT с src по размерам src2. x,y точки можещь выбрать сам. В нашем случае f(100,200) охватывает зону лица
-    imshow("OR",res);
+    circularIndexing(src, dst, Kernel);
 
-    waitKey(0);
 
+
+    namedWindow("final");
+    imshow("final", dst);
+
+    namedWindow("initial");
+    imshow("initial", src);
+
+    waitKey();
+
+
+    return 0;
 }
